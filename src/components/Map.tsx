@@ -32,7 +32,10 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
 
   const fetchToilets = async () => {
     try {
-      const response = await fetch('/api/explore/v2.1/catalog/datasets/sanisettesparis/records?limit=20');
+      const response = await fetch('https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/sanisettesparis/records?limit=20');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       console.log('Fetched toilets:', data.results);
       setToilets(data.results);
