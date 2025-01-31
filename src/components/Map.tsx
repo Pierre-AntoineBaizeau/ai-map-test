@@ -24,6 +24,7 @@ interface ToiletData {
 const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const userMarker = useRef<mapboxgl.Marker | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const { toast } = useToast();
   const [toilets, setToilets] = useState<ToiletData[]>([]);
@@ -32,8 +33,10 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
     try {
       const response = await fetch('/api/explore/v2.1/catalog/datasets/sanisettesparis/records?limit=20');
       const data = await response.json();
+      console.log('Fetched toilets:', data.results);
       setToilets(data.results);
     } catch (error) {
+      console.error('Error fetching toilets:', error);
       toast({
         title: "Error",
         description: "Failed to fetch toilet locations",
@@ -61,25 +64,36 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
     // Add navigation controls
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Add markers for toilets
-    toilets.forEach(toilet => {
-      const marker = new mapboxgl.Marker({
-        color: '#0D9488'
-      })
-        .setLngLat([toilet.geo_point_2d.lon, toilet.geo_point_2d.lat])
-        .addTo(map.current!);
+    // Create user location marker
+    userMarker.current = new mapboxgl.Marker({
+      color: '#4B5563',
+      scale: 0.8
+    });
 
-      // Add click event to marker
-      marker.getElement().addEventListener('click', () => {
-        onToiletSelect({
-          id: toilet.adresse,
-          name: toilet.adresse,
-          type: 'public',
-          horaire: toilet.horaire,
-          accessible: toilet.acces_pmr === 'Oui',
-          lat: toilet.geo_point_2d.lat,
-          lng: toilet.geo_point_2d.lon,
-        });
+    // Wait for map to load before adding markers
+    map.current.on('load', () => {
+      // Add markers for toilets
+      toilets.forEach(toilet => {
+        if (toilet.geo_point_2d && toilet.geo_point_2d.lon && toilet.geo_point_2d.lat) {
+          const marker = new mapboxgl.Marker({
+            color: '#0D9488'
+          })
+            .setLngLat([toilet.geo_point_2d.lon, toilet.geo_point_2d.lat])
+            .addTo(map.current!);
+
+          // Add click event to marker
+          marker.getElement().addEventListener('click', () => {
+            onToiletSelect({
+              id: toilet.adresse,
+              name: toilet.adresse,
+              type: 'public',
+              horaire: toilet.horaire,
+              accessible: toilet.acces_pmr === 'Oui',
+              lat: toilet.geo_point_2d.lat,
+              lng: toilet.geo_point_2d.lon,
+            });
+          });
+        }
       });
     });
 
@@ -94,6 +108,14 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
+        
+        // Update user marker position
+        if (userMarker.current) {
+          userMarker.current
+            .setLngLat([longitude, latitude])
+            .addTo(map.current!);
+        }
+
         map.current?.flyTo({
           center: [longitude, latitude],
           zoom: 15,
