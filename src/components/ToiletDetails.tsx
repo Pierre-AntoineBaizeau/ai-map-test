@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from './ui/button';
-import { Star, Clock, DollarSign, Wheelchair } from 'lucide-react';
+import { Star, Clock, DollarSign, Accessibility } from 'lucide-react';
 
 interface ToiletDetailsProps {
   toilet: any;
@@ -35,7 +35,7 @@ const ToiletDetails: React.FC<ToiletDetailsProps> = ({ toilet, onClose }) => {
             <span>Free</span>
           </div>
           <div className="flex items-center">
-            <Wheelchair className="w-5 h-5 text-gray-500 mr-2" />
+            <Accessibility className="w-5 h-5 text-gray-500 mr-2" />
             <span>Accessible</span>
           </div>
           <div className="flex items-center">
