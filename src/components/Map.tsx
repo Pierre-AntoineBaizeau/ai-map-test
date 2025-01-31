@@ -24,6 +24,7 @@ interface ToiletData {
 const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const userMarker = useRef<mapboxgl.Marker | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const { toast } = useToast();
@@ -51,6 +52,14 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
 
   useEffect(() => {
     if (!mapContainer.current || !mapboxToken) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+    
+    if (userMarker.current) {
+      userMarker.current.remove();
+    }
 
     mapboxgl.accessToken = mapboxToken;
     
@@ -93,11 +102,17 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
               lng: toilet.geo_point_2d.lon,
             });
           });
+
+          markersRef.current.push(marker);
         }
       });
     });
 
     return () => {
+      markersRef.current.forEach(marker => marker.remove());
+      if (userMarker.current) {
+        userMarker.current.remove();
+      }
       map.current?.remove();
     };
   }, [mapboxToken, toilets, onToiletSelect]);
