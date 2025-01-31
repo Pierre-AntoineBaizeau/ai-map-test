@@ -9,54 +9,84 @@ interface MapProps {
   onToiletSelect: (toilet: any) => void;
 }
 
+interface ToiletData {
+  type: string;
+  adresse: string;
+  arrondissement: string;
+  horaire: string;
+  acces_pmr: string;
+  geo_point_2d: {
+    lon: number;
+    lat: number;
+  };
+}
+
 const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const { toast } = useToast();
+  const [toilets, setToilets] = useState<ToiletData[]>([]);
 
-  // Temporary data for demonstration
-  const dummyToilets = [
-    { id: 1, lat: -33.8688, lng: 151.2093, type: 'public', name: 'Central Station Restroom' },
-    { id: 2, lat: -33.8568, lng: 151.2153, type: 'private', name: 'Shopping Center Facilities' },
-  ];
+  const fetchToilets = async () => {
+    try {
+      const response = await fetch('/api/explore/v2.1/catalog/datasets/sanisettesparis/records?limit=20');
+      const data = await response.json();
+      setToilets(data.results);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch toilet locations",
+        variant: "destructive"
+      });
+    }
+  };
 
   useEffect(() => {
-    if (!mapContainer.current) return;
+    fetchToilets();
+  }, []);
 
-    // Initialize map only if we have the token
-    if (!mapboxToken) return;
+  useEffect(() => {
+    if (!mapContainer.current || !mapboxToken) return;
 
     mapboxgl.accessToken = mapboxToken;
     
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
-      center: [151.2093, -33.8688], // Sydney
+      center: [2.3522, 48.8566], // Paris coordinates
       zoom: 13,
     });
 
     // Add navigation controls
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Add markers for dummy toilets
-    dummyToilets.forEach(toilet => {
+    // Add markers for toilets
+    toilets.forEach(toilet => {
       const marker = new mapboxgl.Marker({
-        color: toilet.type === 'public' ? '#0D9488' : '#1E40AF'
+        color: '#0D9488'
       })
-        .setLngLat([toilet.lng, toilet.lat])
+        .setLngLat([toilet.geo_point_2d.lon, toilet.geo_point_2d.lat])
         .addTo(map.current!);
 
       // Add click event to marker
       marker.getElement().addEventListener('click', () => {
-        onToiletSelect(toilet);
+        onToiletSelect({
+          id: toilet.adresse,
+          name: toilet.adresse,
+          type: 'public',
+          horaire: toilet.horaire,
+          accessible: toilet.acces_pmr === 'Oui',
+          lat: toilet.geo_point_2d.lat,
+          lng: toilet.geo_point_2d.lon,
+        });
       });
     });
 
     return () => {
       map.current?.remove();
     };
-  }, [mapboxToken, onToiletSelect]);
+  }, [mapboxToken, toilets, onToiletSelect]);
 
   const getCurrentLocation = () => {
     if (!map.current) return;
