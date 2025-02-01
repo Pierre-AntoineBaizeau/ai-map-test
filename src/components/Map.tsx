@@ -64,15 +64,15 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
     });
   };
 
-  const fetchToilets = async (bounds?: mapboxgl.LngLatBounds) => {
-    try {
-      let url = 'https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/sanisettesparis/records?limit=100';
-      
-      if (bounds) {
-        const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
-        url += `&geofilter.bbox=${bbox}`;
-      }
+  const fetchToilets = async () => {
+    if (!map.current) return;
 
+    try {
+      const bounds = map.current.getBounds();
+      const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+      
+      const url = `https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/sanisettesparis/records?limit=100&geofilter.bbox=${bbox}`;
+      
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -114,20 +114,11 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
     });
 
     // Initial fetch after map loads
-    map.current.once('load', () => {
-      const bounds = map.current?.getBounds();
-      if (bounds) {
-        fetchToilets(bounds);
-      }
-    });
+    map.current.once('load', fetchToilets);
 
-    // Update toilets when map moves
-    map.current.on('moveend', () => {
-      const bounds = map.current?.getBounds();
-      if (bounds) {
-        fetchToilets(bounds);
-      }
-    });
+    // Update toilets when map moves or zooms
+    map.current.on('moveend', fetchToilets);
+    map.current.on('zoomend', fetchToilets);
 
     return () => {
       clearMarkers();
