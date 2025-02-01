@@ -30,9 +30,17 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
   const { toast } = useToast();
   const [toilets, setToilets] = useState<ToiletData[]>([]);
 
-  const fetchToilets = async () => {
+  const fetchToilets = async (bounds?: mapboxgl.LngLatBounds) => {
     try {
-      const response = await fetch('https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/sanisettesparis/records?limit=20');
+      let url = 'https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/sanisettesparis/records?limit=100';
+      
+      // Add bounding box parameters if bounds are provided
+      if (bounds) {
+        const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+        url += `&geofilter.bbox=${bbox}`;
+      }
+
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -48,10 +56,6 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
       });
     }
   };
-
-  useEffect(() => {
-    fetchToilets();
-  }, []);
 
   useEffect(() => {
     if (!mapContainer.current || !mapboxToken) return;
@@ -84,6 +88,12 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
 
     // Wait for map to load before adding markers
     map.current.on('load', () => {
+      // Fetch toilets for initial viewport
+      const bounds = map.current?.getBounds();
+      if (bounds) {
+        fetchToilets(bounds);
+      }
+
       // Add markers for toilets
       toilets.forEach(toilet => {
         if (toilet.geo_point_2d && toilet.geo_point_2d.lon && toilet.geo_point_2d.lat) {
@@ -109,6 +119,14 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
           markersRef.current.push(marker);
         }
       });
+    });
+
+    // Update toilets when map moves
+    map.current.on('moveend', () => {
+      const bounds = map.current?.getBounds();
+      if (bounds) {
+        fetchToilets(bounds);
+      }
     });
 
     return () => {
