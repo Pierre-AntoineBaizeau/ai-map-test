@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Star, Clock, DollarSign, Accessibility } from 'lucide-react';
 
@@ -8,8 +8,40 @@ interface ToiletDetailsProps {
 }
 
 const ToiletDetails: React.FC<ToiletDetailsProps> = ({ toilet, onClose }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  let touchStart = 0;
+
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStart = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!touchStart) return;
+
+      const touchEnd = e.touches[0].clientY;
+      const diff = touchEnd - touchStart;
+
+      if (diff > 50) { // If swiped down more than 50px
+        onClose();
+        touchStart = 0;
+      }
+    };
+
+    card.addEventListener('touchstart', handleTouchStart);
+    card.addEventListener('touchmove', handleTouchMove);
+
+    return () => {
+      card.removeEventListener('touchstart', handleTouchStart);
+      card.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [onClose]);
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-lg animate-slide-up z-50">
+    <div ref={cardRef} className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-lg animate-slide-up z-50">
       <div className="p-6">
         <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
         
