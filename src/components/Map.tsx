@@ -28,13 +28,46 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
   const userMarker = useRef<mapboxgl.Marker | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const { toast } = useToast();
-  const [toilets, setToilets] = useState<ToiletData[]>([]);
+
+  const clearMarkers = () => {
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+  };
+
+  const addMarkers = (toilets: ToiletData[]) => {
+    if (!map.current) return;
+    
+    clearMarkers();
+    
+    toilets.forEach(toilet => {
+      if (toilet.geo_point_2d && toilet.geo_point_2d.lon && toilet.geo_point_2d.lat) {
+        const marker = new mapboxgl.Marker({
+          color: '#0D9488'
+        })
+          .setLngLat([toilet.geo_point_2d.lon, toilet.geo_point_2d.lat])
+          .addTo(map.current!);
+
+        marker.getElement().addEventListener('click', () => {
+          onToiletSelect({
+            id: toilet.adresse,
+            name: toilet.adresse,
+            type: 'public',
+            horaire: toilet.horaire,
+            accessible: toilet.acces_pmr === 'Oui',
+            lat: toilet.geo_point_2d.lat,
+            lng: toilet.geo_point_2d.lon,
+          });
+        });
+
+        markersRef.current.push(marker);
+      }
+    });
+  };
 
   const fetchToilets = async (bounds?: mapboxgl.LngLatBounds) => {
     try {
       let url = 'https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/sanisettesparis/records?limit=100';
       
-      // Add bounding box parameters if bounds are provided
       if (bounds) {
         const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
         url += `&geofilter.bbox=${bbox}`;
@@ -46,7 +79,7 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
       }
       const data = await response.json();
       console.log('Fetched toilets:', data.results);
-      setToilets(data.results);
+      addMarkers(data.results);
     } catch (error) {
       console.error('Error fetching toilets:', error);
       toast({
@@ -59,10 +92,6 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
 
   useEffect(() => {
     if (!mapContainer.current || !mapboxToken) return;
-
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
     
     if (userMarker.current) {
       userMarker.current.remove();
@@ -77,48 +106,19 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
       zoom: 13,
     });
 
-    // Add navigation controls
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // Create user location marker
     userMarker.current = new mapboxgl.Marker({
       color: '#4B5563',
       scale: 0.8
     });
 
-    // Wait for map to load before adding markers
-    map.current.on('load', () => {
-      // Fetch toilets for initial viewport
+    // Initial fetch after map loads
+    map.current.once('load', () => {
       const bounds = map.current?.getBounds();
       if (bounds) {
         fetchToilets(bounds);
       }
-
-      // Add markers for toilets
-      toilets.forEach(toilet => {
-        if (toilet.geo_point_2d && toilet.geo_point_2d.lon && toilet.geo_point_2d.lat) {
-          const marker = new mapboxgl.Marker({
-            color: '#0D9488'
-          })
-            .setLngLat([toilet.geo_point_2d.lon, toilet.geo_point_2d.lat])
-            .addTo(map.current!);
-
-          // Add click event to marker
-          marker.getElement().addEventListener('click', () => {
-            onToiletSelect({
-              id: toilet.adresse,
-              name: toilet.adresse,
-              type: 'public',
-              horaire: toilet.horaire,
-              accessible: toilet.acces_pmr === 'Oui',
-              lat: toilet.geo_point_2d.lat,
-              lng: toilet.geo_point_2d.lon,
-            });
-          });
-
-          markersRef.current.push(marker);
-        }
-      });
     });
 
     // Update toilets when map moves
@@ -130,13 +130,13 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
     });
 
     return () => {
-      markersRef.current.forEach(marker => marker.remove());
+      clearMarkers();
       if (userMarker.current) {
         userMarker.current.remove();
       }
       map.current?.remove();
     };
-  }, [mapboxToken, toilets, onToiletSelect]);
+  }, [mapboxToken]);
 
   const getCurrentLocation = () => {
     if (!map.current) return;
@@ -145,7 +145,6 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
       (position) => {
         const { latitude, longitude } = position.coords;
         
-        // Update user marker position
         if (userMarker.current) {
           userMarker.current
             .setLngLat([longitude, latitude])
