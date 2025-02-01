@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { Button } from './ui/button';
-import { Star, Clock, DollarSign, Accessibility } from 'lucide-react';
+import { Clock, MapPin, Accessibility, Building } from 'lucide-react';
+import { ToiletDetails as ToiletDetailsType } from '../types/toilet';
 
 interface ToiletDetailsProps {
-  toilet: any;
+  toilet: ToiletDetailsType;
   onClose: () => void;
 }
 
@@ -25,7 +26,7 @@ const ToiletDetails: React.FC<ToiletDetailsProps> = ({ toilet, onClose }) => {
       const touchEnd = e.touches[0].clientY;
       const diff = touchEnd - touchStart;
 
-      if (diff > 50) { // If swiped down more than 50px
+      if (diff > 50) {
         onClose();
         touchStart = 0;
       }
@@ -54,29 +55,36 @@ const ToiletDetails: React.FC<ToiletDetailsProps> = ({ toilet, onClose }) => {
 
         <div className="flex gap-2 mb-4">
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-primary/10 text-primary">
-            {toilet.type === 'public' ? 'Public' : 'Private'}
+            {toilet.type}
           </span>
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-secondary text-secondary-foreground">
-            <Clock className="w-4 h-4 mr-1" /> Open
+            {toilet.horaire}
           </span>
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="flex items-center">
-            <DollarSign className="w-5 h-5 text-gray-500 mr-2" />
-            <span>Free</span>
+            <Building className="w-5 h-5 text-gray-500 mr-2" />
+            <span>{toilet.arrondissement}</span>
           </div>
           <div className="flex items-center">
             <Accessibility className="w-5 h-5 text-gray-500 mr-2" />
-            <span>Accessible</span>
+            <span>{toilet.accessible ? 'Accessible' : 'Non accessible'}</span>
           </div>
           <div className="flex items-center">
-            <Star className="w-5 h-5 text-yellow-400 mr-2" />
-            <span>4.5 (28 reviews)</span>
+            <Clock className="w-5 h-5 text-gray-500 mr-2" />
+            <span>{toilet.horaire}</span>
+          </div>
+          <div className="flex items-center">
+            <MapPin className="w-5 h-5 text-gray-500 mr-2" />
+            <span>{toilet.arrondissement}</span>
           </div>
         </div>
 
-        <Button className="w-full" onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${toilet.lat},${toilet.lng}`)}>
+        <Button 
+          className="w-full" 
+          onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${toilet.lat},${toilet.lng}`)}
+        >
           Get Directions
         </Button>
       </div>

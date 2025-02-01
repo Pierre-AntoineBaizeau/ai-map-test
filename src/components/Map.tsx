@@ -4,21 +4,11 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { Button } from './ui/button';
 import { Locate } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
+import { createToiletMarker } from './map/MapMarker';
+import { ToiletData, ToiletDetails } from '../types/toilet';
 
 interface MapProps {
-  onToiletSelect: (toilet: any) => void;
-}
-
-interface ToiletData {
-  type: string;
-  adresse: string;
-  arrondissement: string;
-  horaire: string;
-  acces_pmr: string;
-  geo_point_2d: {
-    lon: number;
-    lat: number;
-  };
+  onToiletSelect: (toilet: ToiletDetails) => void;
 }
 
 const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
@@ -36,29 +26,11 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
 
   const addMarkers = (toilets: ToiletData[]) => {
     if (!map.current) return;
-    
     clearMarkers();
     
     toilets.forEach(toilet => {
       if (toilet.geo_point_2d && toilet.geo_point_2d.lon && toilet.geo_point_2d.lat) {
-        const marker = new mapboxgl.Marker({
-          color: '#0D9488'
-        })
-          .setLngLat([toilet.geo_point_2d.lon, toilet.geo_point_2d.lat])
-          .addTo(map.current!);
-
-        marker.getElement().addEventListener('click', () => {
-          onToiletSelect({
-            id: toilet.adresse,
-            name: toilet.adresse,
-            type: 'public',
-            horaire: toilet.horaire,
-            accessible: toilet.acces_pmr === 'Oui',
-            lat: toilet.geo_point_2d.lat,
-            lng: toilet.geo_point_2d.lon,
-          });
-        });
-
+        const marker = createToiletMarker(map.current!, toilet, onToiletSelect);
         markersRef.current.push(marker);
       }
     });
@@ -78,7 +50,6 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Fetched toilets:', data.results);
       addMarkers(data.results);
     } catch (error) {
       console.error('Error fetching toilets:', error);
@@ -89,45 +60,6 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
       });
     }
   };
-
-  useEffect(() => {
-    if (!mapContainer.current || !mapboxToken) return;
-    
-    if (userMarker.current) {
-      userMarker.current.remove();
-    }
-
-    mapboxgl.accessToken = mapboxToken;
-    
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [2.3522, 48.8566], // Paris coordinates
-      zoom: 13,
-    });
-
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-    userMarker.current = new mapboxgl.Marker({
-      color: '#4B5563',
-      scale: 0.8
-    });
-
-    // Initial fetch after map loads
-    map.current.once('load', fetchToilets);
-
-    // Update toilets when map moves or zooms
-    map.current.on('moveend', fetchToilets);
-    map.current.on('zoomend', fetchToilets);
-
-    return () => {
-      clearMarkers();
-      if (userMarker.current) {
-        userMarker.current.remove();
-      }
-      map.current?.remove();
-    };
-  }, [mapboxToken]);
 
   const getCurrentLocation = () => {
     if (!map.current) return;
@@ -157,6 +89,42 @@ const Map: React.FC<MapProps> = ({ onToiletSelect }) => {
       }
     );
   };
+
+  useEffect(() => {
+    if (!mapContainer.current || !mapboxToken) return;
+    
+    if (userMarker.current) {
+      userMarker.current.remove();
+    }
+
+    mapboxgl.accessToken = mapboxToken;
+    
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [2.3522, 48.8566], // Paris coordinates
+      zoom: 13,
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    userMarker.current = new mapboxgl.Marker({
+      color: '#4B5563',
+      scale: 0.8
+    });
+
+    map.current.once('load', fetchToilets);
+    map.current.on('moveend', fetchToilets);
+    map.current.on('zoomend', fetchToilets);
+
+    return () => {
+      clearMarkers();
+      if (userMarker.current) {
+        userMarker.current.remove();
+      }
+      map.current?.remove();
+    };
+  }, [mapboxToken]);
 
   return (
     <div className="relative w-full h-screen">
